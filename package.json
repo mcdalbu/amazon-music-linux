@@ -1,0 +1,12 @@
+{
+  "name": "amazon-music-linux",
+  "productName": "Amazon Music Linux",
+  "version": "0.4.3",
+  "description": "Cliente GTK4/libadwaita com Electron, integração MPRIS e pacote RPM",
+  "license": "MIT",
+  "scripts": {
+    "start": "./scripts/run.sh",
+    "test": "./scripts/test.sh",
+    "build:rpm": "/usr/bin/python3 scripts/build.py"
+  }
+}

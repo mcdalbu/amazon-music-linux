@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Amazon Music Linux
+Comment=Amazon Music with integrated preferences in a single window
+Comment[pt_BR]=Amazon Music com preferências integradas em uma única janela
+Exec=amazon-music-linux
+Icon=io.github.amzml.AmazonMusic
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+StartupWMClass=io.github.amzml.AmazonMusic
+Keywords=Music;Amazon;Streaming;

@@ -1,0 +1,11 @@
+.cache/
+build/
+dist/
+__pycache__/
+*.pyc
+node_modules/
+electron/*.node
+
+.agents/
+.aws/
+.codex/

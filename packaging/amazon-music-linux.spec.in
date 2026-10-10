@@ -1,0 +1,112 @@
+%global debug_package %{nil}
+%global __os_install_post %{nil}
+%global _build_id_links none
+
+Name:           amazon-music-linux
+Version:        @VERSION@
+Release:        1%{?dist}
+Summary:        Native GTK4/libadwaita Amazon Music client with Electron and MPRIS
+License:        MIT AND BSD-3-Clause AND LGPL-2.1-or-later
+Source0:        %{name}-%{version}.tar.gz
+AutoReqProv:    no
+Requires:       python3
+Requires:       python3-gobject
+Requires:       libappindicator-gtk3
+Requires:       gtk3
+Requires:       gtk4 >= 4.12
+Requires:       libadwaita >= 1.5
+Requires:       nss
+Requires:       nspr
+Requires:       alsa-lib
+Requires:       at-spi2-atk
+Requires:       libdrm
+Requires:       mesa-libgbm
+Requires:       libX11
+Requires:       libXcomposite
+Requires:       libXdamage
+Requires:       libXext
+Requires:       libXfixes
+Requires:       libXrandr
+Requires:       libxcb
+Requires:       libxkbcommon
+Requires:       cups-libs
+Requires:       dbus-libs
+Requires:       glib2
+Requires:       pango
+Requires:       cairo
+Requires:       libstdc++
+Requires:       libgcc
+Requires:       systemd-libs
+Requires:       expat
+Requires:       glibc >= 2.34
+Requires:       xdg-utils
+
+%description
+Independent Amazon Music client with a native GTK4/libadwaita window.
+CastLabs Electron/Chromium renders the web player off-screen inside the native window.
+Includes integrated preferences, optional hardware acceleration and MPRIS.
+An Amazon account, internet access and a working Widevine CDM are required
+for protected playback. HD/Ultra HD availability depends on Amazon.
+
+%prep
+%setup -q
+
+%build
+# The verified CastLabs Electron runtime is already in Source0.
+
+%install
+mkdir -p %{buildroot}/opt/%{name}
+cp -a app %{buildroot}/opt/%{name}/
+install -Dm755 packaging/amazon-music-linux %{buildroot}%{_bindir}/%{name}
+install -Dm644 packaging/io.github.amzml.AmazonMusic.desktop %{buildroot}%{_datadir}/applications/io.github.amzml.AmazonMusic.desktop
+install -Dm644 app/assets/io.github.amzml.AmazonMusic.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/io.github.amzml.AmazonMusic.svg
+
+install -Dm644 app/assets/io.github.amzml.AmazonMusic.png %{buildroot}%{_datadir}/icons/hicolor/512x512/apps/io.github.amzml.AmazonMusic.png
+
+%files
+%{_bindir}/%{name}
+%{_datadir}/applications/io.github.amzml.AmazonMusic.desktop
+%{_datadir}/icons/hicolor/scalable/apps/io.github.amzml.AmazonMusic.svg
+%{_datadir}/icons/hicolor/512x512/apps/io.github.amzml.AmazonMusic.png
+%dir /opt/%{name}
+/opt/%{name}/app
+%changelog
+* Fri Oct 09 2026 Amazon Music Linux contributors - @VERSION@-1
+- Import Electron GPU DMA-BUF textures directly into GTK without per-frame CPU readback.
+- Preserve fractional touchpad scrolling and mark precise wheel input.
+- Publish cached album artwork and implement MPRIS Next/Previous through MediaSession.
+
+* Fri Oct 09 2026 Amazon Music Linux contributors - 0.4.2-1
+- Observe detached audio and MediaSession metadata/actions for the GNOME media player.
+- Deliver HiDPI bitmaps through leased shared-memory buffers at the active display refresh rate.
+- Preserve pixel scrolling from touchpads and synchronize presentation with GTK.
+
+* Fri Oct 09 2026 Amazon Music Linux contributors - 0.4.1-1
+- Add optional background playback with a StatusNotifier tray menu.
+- Publish the Amazon icon as the GNOME media-card artwork.
+
+* Fri Oct 09 2026 Amazon Music Linux contributors - 0.4.0-1
+- Keep the native GTK4/libadwaita window and replace CEF with hidden offscreen Electron.
+- Preserve native theme, GPU preferences, MPRIS and completed Widevine registration.
+
+* Fri Oct 09 2026 Amazon Music Linux contributors - 0.3.0-1
+- Replace Electron with CEF and a native GTK4/libadwaita application window.
+- Embed CEF off-screen frames, popup widgets and native input routing.
+- Use native preferences, desktop appearance, GPU settings and MPRIS.
+- Probe Widevine with EME instead of assuming DRM readiness.
+
+* Fri Oct 09 2026 Amazon Music Linux contributors - 0.2.1-1
+- Use the completed Widevine registration result to avoid repeated restart prompts.
+- Follow the desktop appearance portal and live color scheme changes.
+- Clear the inherited desktop identity on relaunch and retain diagnostic profiles.
+* Fri Oct 09 2026 Amazon Music Linux contributors - 0.2.0-1
+- Embed the player and preferences in a single Electron window.
+- Persist the hardware acceleration preference with restart and software override.
+- Keep MPRIS integration using a headless service.
+* Fri Oct 09 2026 Amazon Music Linux contributors - 0.1.2-1
+- Replace the app icon with a white Amazon smile on a blue background.
+* Fri Oct 09 2026 Amazon Music Linux contributors - 0.1.1-1
+- Use software rendering to avoid black player windows on Wayland.
+- Display loading failures and allow retry; verify rendered pixels in smoke tests.
+* Fri Oct 09 2026 Amazon Music Linux contributors - 0.1.0-1
+- Initial GTK4/libadwaita and Electron client.
