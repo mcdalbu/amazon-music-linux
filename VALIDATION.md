@@ -332,3 +332,20 @@ usuário com `sudo`; a instalação existente permaneceu na versão 0.1.0.
 
 Login e streaming autenticado não foram testados com uma conta Amazon. HD/Ultra HD e
 downloads offline não fazem parte da versão entregue.
+
+
+## 0.4.4 — CPU durante inatividade
+
+A apresentação GTK agora é acordada pela chegada de frames. O callback permanece ativo por uma pequena janela de 25 ms durante fluxos contínuos e é removido quando eles param, preservando o frame clock durante rolagem. O pump de gerenciamento passou de 16 ms para 50 ms; widgets de reprodução só são atualizados quando seu estado muda.
+
+O Electron reduz a renderização para até 15 fps após dois segundos sem interação. Mouse, scroll preciso, teclado, composição de texto, zoom, resize e retorno ao primeiro plano restauram a taxa do monitor imediatamente. Há apenas um timer de transição por sequência de interação; áudio e observação MPRIS permanecem ativos. O diagnóstico separa `frameRate` atual de `targetFrameRate` do monitor.
+
+Validação local em Wayland, com perfis temporários e sem usar a conta Amazon:
+- 34 testes Python e os testes de política JavaScript passaram.
+- Smoke tests do RPM passaram com GPU e software: reprodução, segundo plano, capas, próxima/anterior, escala, temas e alvos 60/144/120 Hz.
+- Fixture estática no RPM: aproximadamente 1,5% de um núcleo para a árvore do app durante 12 segundos; seis callbacks GTK correspondentes a três frames recebidos, sem tick permanente. O resultado mede uma página local, não streaming da Amazon.
+- Transição real verificada: 15 fps em idle → 120 fps após entrada → 15 fps após inatividade.
+- Teste de rolagem nesta sessão: aproximadamente 54 fps no caminho modificado e 56 fps na versão anterior, ambos com produtor/target em 120 fps. A apresentação efetiva depende das condições do desktop; este teste não comprova 120 fps sustentados.
+- RPM conferido contra os arquivos de código atuais e `rpm -K` confirmou os digests.
+
+Logs locais: `build/idle-final-0.4.4.log`, `build/cpu-scroll-performance.log`, `build/cpu-scroll-baseline.log`, `build/packaged-cpu-gpu-0.4.4.log` e `build/packaged-cpu-software-0.4.4.log`.

@@ -47,8 +47,9 @@ def read_packet(stream):
     return header, None
 
 class Electron:
-    def __init__(self, runtime, profile, url, paint, event):
+    def __init__(self, runtime, profile, url, paint, event, wake=None):
         self.paint, self.event = paint, event
+        self.wake = wake or (lambda: None)
         self.state = {}; self.failure = ''; self.failure_reported = False
         self.frame = None; self.frame_lock = threading.Lock()
         self.gpu_frame = None
@@ -83,6 +84,7 @@ class Electron:
                 if header['type'] == 'frame':
                     with self.frame_lock: previous, self.frame = self.frame, (header,data)
                     if previous: self.release_frame(previous[0])
+                    self.wake()
                 else: self.events.put_nowait(header)
         except (EOFError, OSError, ValueError, queue.Full) as error:
             if not self.stopping: self.failure = str(error)
@@ -102,6 +104,7 @@ class Electron:
                 frame=receive_texture(self.texture_channel,lambda sequence:self.send('texture-release',sequence=sequence))
                 with self.frame_lock:previous,self.gpu_frame=self.gpu_frame,frame
                 if previous:previous.release()
+                self.wake()
         except (EOFError,OSError,ValueError) as error:
             if not self.stopping:self.failure=str(error)
 

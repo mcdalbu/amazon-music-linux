@@ -8,7 +8,7 @@ o menu e as preferências continuam nativos. Há somente uma janela visível.
 ## Instalar
 
 ```bash
-sudo dnf install ./dist/amazon-music-linux-0.4.3-1.fc44.x86_64.rpm
+sudo dnf install ./dist/amazon-music-linux-0.4.4-1.fc44.x86_64.rpm
 amazon-music-linux
 ```
 
@@ -88,7 +88,7 @@ A escolha é salva antes da próxima inicialização do Electron. Software é o 
 A disponibilidade de aceleração depende do driver/hardware. A preferência controla
 renderização; não define a qualidade do áudio. A taxa de saída acompanha automaticamente
 o monitor em que a janela está (inclusive 120/144 Hz), e é atualizada ao mudar
-de monitor ou de taxa. A apresentação segue o frame clock do GTK. O app respeita
+de monitor ou de taxa. A apresentação segue o frame clock do GTK. Após dois segundos sem interação, a renderização cai para até 15 fps para reduzir CPU; movimento do mouse, rolagem, teclado e redimensionamento restauram imediatamente a taxa do monitor. A reprodução de áudio continua independente dessa taxa. O callback de apresentação é removido quando não há novos frames. O app respeita
 os pixels fracionários do touchpad e informa ao Chromium que a entrada é precisa.
 Com aceleração ativa e GTK ≥ 4.14, o app importa as texturas DMA-BUF diretamente
 na GPU, mantendo cada buffer reservado até o GTK terminar de usá-lo. Isso elimina

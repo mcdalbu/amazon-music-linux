@@ -50,6 +50,7 @@ class MusicApp(Adw.Application):
         self.closing = self.restarting = False
         self.pump_id = 0
         self.frame_count = 0
+        self.frame_tick_id = 0
         self.last_present = 0
         self.frame_rate = 0
         self.frame_has_content = False
@@ -184,14 +185,13 @@ class MusicApp(Adw.Application):
             runtime = ROOT / 'runtime'
             if not runtime.exists(): runtime = ROOT / '.cache/runtime/electron'
             os.environ['AMZML_SCALE'] = str(self.window.get_scale_factor())
-            self.engine = Electron(runtime, self.cache_dir, self.home_url(), self.paint, self.event)
+            self.engine = Electron(runtime, self.cache_dir, self.home_url(), self.paint, self.event, lambda: GLib.idle_add(self.schedule_frame))
             self.engine.mute(self.settings['mute'])
             self.sync_frame_rate()
             self.sync_tray()
             self.apply_theme()
             self.load_deadline = time.monotonic() + 40
-            self.pump_id = GLib.timeout_add(16, self.pump)
-            self.picture.add_tick_callback(self.present_frame)
+            self.pump_id = GLib.timeout_add(50, self.pump)
             if options.diagnostics: print('AMZML_ELECTRON_DIAGNOSTICS', json.dumps({'profile':str(self.cache_dir),'engine':'Electron'}), flush=True)
             if options.smoke_test:
                 from smoke import Smoke
@@ -312,9 +312,12 @@ class MusicApp(Adw.Application):
             return GLib.SOURCE_REMOVE
         if self.load_deadline and time.monotonic() > self.load_deadline:
             self.show_error('O Amazon Music demorou para responder. Verifique a conexão e tente novamente.')
-        self.spinner.set_spinning(not self.ready and not self.error)
-        self.play_button.set_sensitive(self.media['available'])
-        self.play_button.set_icon_name('media-playback-start-symbolic' if self.media['paused'] else 'media-playback-pause-symbolic')
+        controls = (not self.ready and not self.error, self.media['available'], self.media['paused'])
+        if controls != getattr(self, 'last_controls', None):
+            self.last_controls = controls
+            self.spinner.set_spinning(controls[0])
+            self.play_button.set_sensitive(controls[1])
+            self.play_button.set_icon_name('media-playback-start-symbolic' if controls[2] else 'media-playback-pause-symbolic')
         now=time.monotonic()
         if now-self.last_poll>1:
             self.last_poll=now
@@ -332,11 +335,22 @@ class MusicApp(Adw.Application):
             self.last_drm_probe=now; self.inject_observer()
         return GLib.SOURCE_CONTINUE
 
+    def schedule_frame(self):
+        self.frame_active_until = time.monotonic() + 0.025
+        if self.engine and not self.closing and not self.background and not self.frame_tick_id:
+            self.frame_tick_id = self.picture.add_tick_callback(self.present_frame)
+        return GLib.SOURCE_REMOVE
+
     def present_frame(self, _widget, _clock):
         self.last_present=time.monotonic()
         if self.engine and not self.closing and not self.background:
             self.engine.present_frame()
-        return GLib.SOURCE_CONTINUE
+            # Keep the clock running across a stream of frames. Re-registering
+            # for each frame costs an extra vsync and halves presentation rate.
+            if time.monotonic() < getattr(self, 'frame_active_until', 0):
+                return GLib.SOURCE_CONTINUE
+        self.frame_tick_id = 0
+        return GLib.SOURCE_REMOVE
 
     def sync_frame_rate(self):
         if not self.engine or not self.window: return

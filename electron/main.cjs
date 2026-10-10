@@ -18,6 +18,25 @@ let window, closing = false, blocked = false, pendingFrame = null, pendingEvents
 let displayScale = 1, userZoom = 0;
 let renderWidth=1280,renderHeight=780;
 let requestedFrameRate=60, documentPainted=false, documentLoaded=false;
+let activeUntil=0, idleTimer=null;
+function applyFrameRate() {
+  if (closing || !window || window.isDestroyed() || !documentPainted) return;
+  const wc=window.webContents;
+  const fps=Date.now()<activeUntil ? requestedFrameRate : Math.min(15,requestedFrameRate);
+  if(wc.getFrameRate()!==fps)wc.setFrameRate(fps);
+}
+function renderingActivity() {
+  activeUntil=Date.now()+2000;
+  applyFrameRate();
+  // One idle transition per interaction burst, rather than a timer per input.
+  if(!idleTimer)idleTimer=setTimeout(renderingIdle,2000);
+}
+function renderingIdle() {
+  idleTimer=null;
+  const remaining=activeUntil-Date.now();
+  if(remaining>0)idleTimer=setTimeout(renderingIdle,remaining);
+  else {applyFrameRate();if(!closing)engineState();}
+}
 const textureFD=Number(process.env.AMZML_TEXTURE_FD);
 let sharedGPU=process.env.AMZML_GPU==='1' && process.env.AMZML_SHARED_TEXTURE==='1' && Number.isInteger(textureFD) && textureFD>=3;
 const gpuBridge=sharedGPU ? require('./gpu-bridge.node') : null;
@@ -62,7 +81,7 @@ function frame(image) {
         documentPainted=true;
         // Let the first capture callback finish before reconfiguring it.
         setImmediate(() => {
-          if (!closing && !window.isDestroyed()) { window.webContents.setFrameRate(requestedFrameRate);engineState(); }
+          if (!closing && !window.isDestroyed()) { applyFrameRate();engineState(); }
         });
         break;
       }
@@ -101,6 +120,7 @@ channel.on('drain', () => {
 function stop() {
   if (closing) return;
   closing = true; pendingFrame = null;
+  clearTimeout(idleTimer);idleTimer=null;
   if (tray) { tray.destroy(); tray = null; }
   if (window && !window.isDestroyed()) window.destroy();
   for(const texture of textureLeases.values())texture.release();
@@ -165,7 +185,7 @@ function engineState() {
   event(16, { visibleWindows: BrowserWindow.getAllWindows().filter(w => w.isVisible()).length,
     offscreen: window.webContents.isOffscreen(), sandbox: window.webContents.getLastWebPreferences().sandbox,
     hardwareAcceleration: app.isHardwareAccelerationEnabled(), features: app.getGPUFeatureStatus(),
-    sharedGPU, sharedFrames, textureLeases:textureLeases.size, tray:!!tray, trayError, painting:window.webContents.isPainting(), frameRate:window.webContents.getFrameRate(), displayScale, userZoom, muted:window.webContents.isAudioMuted(), electron: process.versions.electron, chromium: process.versions.chrome });
+    sharedGPU, sharedFrames, textureLeases:textureLeases.size, tray:!!tray, trayError, painting:window.webContents.isPainting(), frameRate:window.webContents.getFrameRate(), targetFrameRate:requestedFrameRate, displayScale, userZoom, muted:window.webContents.isAudioMuted(), electron: process.versions.electron, chromium: process.versions.chrome });
 }
 let input = ''; const startupCommands = [];
 function receive(chunk) {
@@ -183,7 +203,7 @@ function receive(chunk) {
         case 'texture-ready':
           if(sharedGPU && !documentPainted) {
             documentPainted=true;
-            if(documentLoaded) {wc.setFrameRate(requestedFrameRate);engineState();}
+            if(documentLoaded) {applyFrameRate();engineState();}
           }
           break;
         case 'texture-fallback': textureFallback();break;
@@ -195,7 +215,7 @@ function receive(chunk) {
         case 'frame-rate':
           if (Number.isInteger(message.fps) && message.fps>=1 && message.fps<=240) {
             requestedFrameRate=message.fps;
-            if (documentPainted) wc.setFrameRate(requestedFrameRate);
+            renderingActivity();
             engineState();
           }
           break;
@@ -211,7 +231,7 @@ function receive(chunk) {
           if (Number.isFinite(w) && Number.isFinite(h)) {
             displayScale = Math.max(1, Math.min(4, Number(message.factor)||1));
             renderWidth=Math.round(w*displayScale);renderHeight=Math.round(h*displayScale);
-            window.setContentSize(renderWidth,renderHeight);
+            renderingActivity(); window.setContentSize(renderWidth,renderHeight);
             wc.setZoomFactor(displayScale*Math.pow(1.2,userZoom));
             wc.invalidate();
           }
@@ -219,7 +239,7 @@ function receive(chunk) {
         }
         case 'focus': if (message.active) wc.focus(); break;
         case 'foreground':
-          if (message.active) { wc.startPainting(); wc.invalidate(); }
+          if (message.active) { renderingActivity(); wc.startPainting(); wc.invalidate(); }
           else { wc.stopPainting(); pendingFrame = null; }
           break;
         case 'tray': updateTray(message); break;
@@ -227,15 +247,15 @@ function receive(chunk) {
         case 'mouse': {
           const inputEvent = {...message.event, x:Math.round(message.event.x*displayScale), y:Math.round(message.event.y*displayScale)};
           if (inputEvent.type==='mouseWheel') { inputEvent.deltaX*=displayScale; inputEvent.deltaY*=displayScale; }
-          wc.sendInputEvent(inputEvent); break;
+          renderingActivity(); wc.sendInputEvent(inputEvent); break;
         }
-        case 'key': wc.sendInputEvent(message.event); break;
-        case 'text': wc.insertText(message.text); break;
+        case 'key': renderingActivity(); wc.sendInputEvent(message.event); break;
+        case 'text': renderingActivity(); wc.insertText(message.text); break;
         case 'script': wc.executeJavaScript(message.script, true).catch(error => { if (test) event(11,{error:error.message}); }); break;
         case 'media': if (observe(wc.getURL()) && ['play','pause','toggle','next','previous'].includes(message.action)) wc.send('media-command',message.action); break;
         case 'load': guardedLoad(message.url); break;
         case 'reload': wc.reload(); break;
-        case 'zoom': userZoom = message.level; wc.setZoomFactor(displayScale*Math.pow(1.2,userZoom)); break;
+        case 'zoom': renderingActivity(); userZoom = message.level; wc.setZoomFactor(displayScale*Math.pow(1.2,userZoom)); break;
         case 'theme': nativeTheme.themeSource = ['dark', 'light'].includes(message.theme) ? message.theme : 'system'; break;
         case 'edit': {
           const operation = { copy: 'copy', cut: 'cut', paste: 'paste', select_all: 'selectAll' }[message.action];
@@ -296,7 +316,7 @@ function createWindow(url) {
         wc.stopPainting();wc.startPainting();wc.invalidate();
       },delay).unref();
     }
-    if(sharedGPU && documentPainted)wc.setFrameRate(requestedFrameRate);
+    if(sharedGPU && documentPainted)applyFrameRate();
     if(sharedGPU) {
       const target=window;
       setTimeout(()=>{if(!closing && window===target && !documentPainted)textureFallback();},5000).unref();

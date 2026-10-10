@@ -1,7 +1,7 @@
 {
   "name": "amazon-music-linux",
   "productName": "Amazon Music Linux",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Cliente GTK4/libadwaita com Electron, integração MPRIS e pacote RPM",
   "license": "MIT",
   "scripts": {

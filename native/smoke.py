@@ -35,7 +35,7 @@ class Smoke:
                 assert len(app.get_windows())==1
                 assert app.engine.window_handle()==0, 'Electron must not create a visible window'
                 assert app.engine.state['sandbox'] and app.engine.state['offscreen']
-                if app.engine.state.get('frameRate')!=app.frame_rate:return True
+                if app.engine.state.get('targetFrameRate')!=app.frame_rate:return True
                 if app.view_size is None: return True
                 if app.texture.get_width()!=app.view_size[0]*app.view_size[2]: return True
                 assert app.texture.get_height()==app.view_size[1]*app.view_size[2], 'Render at physical pixel resolution'
@@ -186,13 +186,13 @@ class Smoke:
                 if app.engine.state.get('tray'): return True
                 app.engine.set_frame_rate(60);self.phase=25
             elif self.phase==25:
-                if app.engine.state.get('frameRate')!=60:return True
+                if app.engine.state.get('targetFrameRate')!=60:return True
                 app.engine.set_frame_rate(144);self.phase=26
             elif self.phase==26:
-                if app.engine.state.get('frameRate')!=144:return True
+                if app.engine.state.get('targetFrameRate')!=144:return True
                 app.frame_rate=0;app.sync_frame_rate();self.phase=27
             elif self.phase==27:
-                if app.engine.state.get('frameRate')!=app.frame_rate:return True
+                if app.engine.state.get('targetFrameRate')!=app.frame_rate:return True
                 app.engine.execute('useSessionOnlyPlayer()')
                 self.phase=22
             elif self.phase==22:
