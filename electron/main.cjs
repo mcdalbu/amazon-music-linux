@@ -241,7 +241,8 @@ function receive(chunk) {
           break;
         }
         case 'focus': if (message.active) wc.focus(); break;
-        case 'trim-memory': memoryMaintenance.trim(); break;
+        // Diagnostic trigger is available only with the local test fixture.
+        case 'trim-memory': if(test) memoryMaintenance.trim('test'); break;
         case 'foreground':
           foreground = message.active === true;
           memoryMaintenance.setBackground(message.active !== true);

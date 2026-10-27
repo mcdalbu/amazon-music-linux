@@ -1,7 +1,7 @@
 {
   "name": "amazon-music-linux",
   "productName": "Amazon Music Linux",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Amazon Music para Linux em Node.js com GTK4/libadwaita, Electron e MPRIS",
   "license": "MIT",
   "scripts": {

@@ -24,7 +24,7 @@ class MemoryMaintenance {
       this.timer.unref?.();
     }
   }
-  async trim(reason = "manual") {
+  async trim(reason = "automatic") {
     if (this.closed || this.busy) return;
     const wc = this.target();
     if (!wc || wc.isDestroyed() || wc.isLoadingMainFrame()) return;

@@ -131,7 +131,6 @@ class MusicApp {
     const menu = new Gio.Menu();
     for (const [label, name] of [
       ["Preferências", "preferences"],
-      ["Reduzir uso de memória", "trim-memory"],
       ["Ampliar", "zoom-in"],
       ["Reduzir", "zoom-out"],
       ["Zoom padrão", "zoom-reset"],
@@ -188,7 +187,6 @@ class MusicApp {
     this.toolbar.setContent(this.stack);
     this.window.setContent(this.toolbar);
     this.action("preferences", () => this.preferences(), ["<Control>comma"]);
-    this.action("trim-memory", () => this.engine?.send("trim-memory"));
     this.action("home", () => this.home(), ["<Alt>Home"]);
     this.action("reload", () => this.engine?.send("reload"), ["<Control>r"]);
     this.action("quit", () => this.quit(), ["<Control>q"]);
@@ -341,14 +339,6 @@ class MusicApp {
         );
       else if (kind === 18) {
         this.memoryReport = JSON.parse(text);
-        if (this.memoryRow)
-          this.memoryRow.setSubtitle(
-            this.memoryReport.status === "complete"
-              ? "Limpeza concluída. A memória ainda em uso pela página é mantida."
-              : this.memoryReport.status === "running"
-                ? "Liberando memória não utilizada…"
-                : "A limpeza não está disponível neste momento.",
-          );
       } else if (kind === 11) {
         this.reports ??= [];
         this.reports.push(JSON.parse(text));
@@ -553,7 +543,6 @@ class MusicApp {
     dialog.on("closed", () => {
       this.prefs = null;
       this.drmRow = null;
-      this.memoryRow = null;
     });
     const page = new Adw.PreferencesPage();
     dialog.add(page);
@@ -604,18 +593,6 @@ class MusicApp {
     this.backgroundRow = background;
     const perf = new Adw.PreferencesGroup({ title: "Desempenho" });
     page.add(perf);
-    this.memoryRow = new Adw.ActionRow({
-      title: "Uso de memória",
-      subtitle:
-        "A limpeza também é feita uma vez após 15 segundos em segundo plano.",
-    });
-    const reduceMemory = new Gtk.Button({
-      label: "Reduzir agora",
-      valign: Gtk.Align.CENTER,
-    });
-    reduceMemory.on("clicked", () => this.engine?.send("trim-memory"));
-    this.memoryRow.addSuffix(reduceMemory);
-    perf.add(this.memoryRow);
     const acceleration = new Adw.SwitchRow({
       title: "Aceleração de hardware",
       subtitle:

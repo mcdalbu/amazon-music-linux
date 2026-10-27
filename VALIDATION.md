@@ -116,3 +116,12 @@ Para repetir a suíte focada:
 AMZML_MEMORY_TEST=1 ./scripts/run.sh --smoke-test --enable-gpu
 AMZML_MEMORY_TEST=1 ./scripts/run.sh --smoke-test --disable-gpu
 ```
+
+
+# 0.5.2 — recuperação automática interna
+
+Foram removidos a ação do menu, o botão e a linha de preferências, além das
+mensagens de progresso/conclusão. A recuperação automática em segundo plano e a
+liberação dos frames continuam ativas. O comando de disparo imediato está limitado
+ao modo de teste com fixture local; não é uma ação do produto. As informações de
+diagnóstico continuam disponíveis apenas internamente para os testes.

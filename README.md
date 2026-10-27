@@ -10,7 +10,7 @@ código ou base do Karere.
 Feche a versão anterior pela opção **Sair** antes de instalar:
 
 ```bash
-sudo dnf install ./amazon-music-linux-0.5.1-1.fc44.x86_64.rpm
+sudo dnf install ./amazon-music-linux-0.5.2-1.fc44.x86_64.rpm
 amazon-music-linux
 ```
 
@@ -74,25 +74,6 @@ podem limitar HD/Ultra HD. **Streaming com conta Amazon e HD/Ultra HD não foram
 validados nesta reescrita.** Não há saída bit-perfect, modo exclusivo ou downloads
 offline.
 
-## Reduzir o uso de memória
-
-Use **Menu → Reduzir uso de memória** ou **Preferências → Desempenho → Uso de
-memória → Reduzir agora**. A ação solicita coleta de lixo e recuperação de páginas
-não utilizadas pelo Chromium. Ela pode causar uma breve pausa visual.
-
-Também é feita uma tentativa de limpeza, uma única vez, após 15 segundos em segundo
-plano. Reabrir a janela cancela essa tentativa pendente. O player não é recarregado
-e o áudio continua ativo; cookies, login e dados da sessão são preservados.
-
-Enquanto a janela está escondida, a textura GTK e os frames pendentes são liberados,
-e as páginas físicas dos buffers compartilhados são descartadas após o backend
-confirmar a pausa da captura. Reabrir solicita um novo frame. O modo software lê
-os pixels diretamente no buffer nativo GTK, evitando uma cópia intermediária em
-Buffer JavaScript a cada frame.
-
-A memória ainda referenciada pelo site da Amazon permanece necessária. A limpeza
-não impõe limites artificiais ao JavaScript nem promete um valor fixo de RAM.
-
 ## Arquitetura
 
 - `app/main.cjs`: janela GTK4/libadwaita, preferências e entrada em Node.js.
@@ -108,6 +89,12 @@ O renderer web mantém sandbox, isolamento de contexto e segurança web, sem Nod
 na página. Não há servidor HTTP ou porta de depuração. Links externos HTTPS abrem
 no navegador. Capas têm limite de tamanho, domínios permitidos e controle de geração
 para evitar que uma resposta atrasada substitua a capa de outra faixa.
+
+A recuperação de memória é interna e automática: uma tentativa após 15 segundos
+em segundo plano, cancelada se a janela for reaberta antes. Texturas e páginas dos
+buffers ocultos são liberadas com confirmação da pausa da captura. A sessão e a
+reprodução são mantidas. O modo software evita uma cópia intermediária de pixels
+em JavaScript. A memória ainda referenciada pela página continua necessária.
 
 Operações de apresentação e encerramento das janelas são agendadas no contexto
 de despacho do GTK, evitando roundtrips Wayland dentro da fase de preparação do
