@@ -5,15 +5,15 @@
 Name:           amazon-music-linux
 Version:        @VERSION@
 Release:        1%{?dist}
-Summary:        Native GTK4/libadwaita Amazon Music client with Electron and MPRIS
+Summary:        Node.js Amazon Music client with native GTK4/libadwaita and Electron
 License:        MIT AND BSD-3-Clause AND LGPL-2.1-or-later
 Source0:        %{name}-%{version}.tar.gz
 AutoReqProv:    no
-Requires:       python3
-Requires:       python3-gobject
 Requires:       libappindicator-gtk3
 Requires:       gtk3
-Requires:       gtk4 >= 4.12
+Requires:       gtk4 >= 4.14
+Requires:       gobject-introspection
+Requires:       libffi
 Requires:       libadwaita >= 1.5
 Requires:       nss
 Requires:       nspr
@@ -42,7 +42,7 @@ Requires:       glibc >= 2.34
 Requires:       xdg-utils
 
 %description
-Independent Amazon Music client with a native GTK4/libadwaita window.
+Independent Node.js Amazon Music client with a native GTK4/libadwaita window.
 CastLabs Electron/Chromium renders the web player off-screen inside the native window.
 Includes integrated preferences, optional hardware acceleration and MPRIS.
 An Amazon account, internet access and a working Widevine CDM are required
@@ -52,7 +52,7 @@ for protected playback. HD/Ultra HD availability depends on Amazon.
 %setup -q
 
 %build
-# The verified CastLabs Electron runtime is already in Source0.
+# The verified Node.js and CastLabs Electron runtimes are in Source0.
 
 %install
 mkdir -p %{buildroot}/opt/%{name}
@@ -71,6 +71,11 @@ install -Dm644 app/assets/io.github.amzml.AmazonMusic.png %{buildroot}%{_datadir
 %dir /opt/%{name}
 /opt/%{name}/app
 %changelog
+* Tue Oct 27 2026 Amazon Music Linux contributors - 0.5.0-1
+- Rewrite the GTK4/libadwaita application and build tooling in Node.js.
+- Keep one visible window, GPU textures, GNOME media controls and background audio.
+- Bundle pinned Node.js and Electron runtimes; remove the Python dependency.
+
 * Fri Oct 09 2026 Amazon Music Linux contributors - @VERSION@-1
 - Import Electron GPU DMA-BUF textures directly into GTK without per-frame CPU readback.
 - Preserve fractional touchpad scrolling and mark precise wheel input.

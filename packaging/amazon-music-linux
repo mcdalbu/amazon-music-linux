@@ -1,3 +1,3 @@
 #!/bin/sh
 unset ELECTRON_RUN_AS_NODE CHROME_DESKTOP
-exec /usr/bin/python3 /opt/amazon-music-linux/app/native/app.py "$@"
+exec /opt/amazon-music-linux/app/node/bin/node /opt/amazon-music-linux/app/app/main.cjs "$@"

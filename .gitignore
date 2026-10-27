@@ -6,6 +6,8 @@ __pycache__/
 node_modules/
 electron/*.node
 
+app/*.node
+app/*.node.tmp
 .agents/
 .aws/
 .codex/

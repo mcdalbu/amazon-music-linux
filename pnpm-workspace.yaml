@@ -1,0 +1,3 @@
+allowBuilds:
+  node-gtk: true
+  usocket: false

@@ -1,12 +1,25 @@
 {
   "name": "amazon-music-linux",
   "productName": "Amazon Music Linux",
-  "version": "0.4.4",
-  "description": "Cliente GTK4/libadwaita com Electron, integração MPRIS e pacote RPM",
+  "version": "0.5.0",
+  "description": "Amazon Music para Linux em Node.js com GTK4/libadwaita, Electron e MPRIS",
   "license": "MIT",
   "scripts": {
     "start": "./scripts/run.sh",
     "test": "./scripts/test.sh",
-    "build:rpm": "/usr/bin/python3 scripts/build.py"
-  }
+    "build:native": "node scripts/build-native.cjs",
+    "setup:runtimes": "node scripts/runtimes.cjs",
+    "build:rpm": "node scripts/build.cjs",
+    "test:smoke": "./scripts/run.sh --smoke-test",
+    "test:smoke:gpu": "./scripts/run.sh --smoke-test --enable-gpu"
+  },
+  "dependencies": {
+    "dbus-next": "0.10.2",
+    "node-gtk": "4.1.1"
+  },
+  "main": "app/main.cjs",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "pnpm@11.25.0"
 }
