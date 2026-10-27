@@ -71,6 +71,11 @@ install -Dm644 app/assets/io.github.amzml.AmazonMusic.png %{buildroot}%{_datadir
 %dir /opt/%{name}
 /opt/%{name}/app
 %changelog
+* Tue Oct 27 2026 Amazon Music Linux contributors - 0.5.1-1
+- Add manual and one-shot background memory reclamation without reloading playback.
+- Release hidden GTK frames and shared-memory pages after capture pauses.
+- Read software frames directly into native textures to reduce buffer duplication.
+
 * Tue Oct 27 2026 Amazon Music Linux contributors - 0.5.0-1
 - Rewrite the GTK4/libadwaita application and build tooling in Node.js.
 - Keep one visible window, GPU textures, GNOME media controls and background audio.

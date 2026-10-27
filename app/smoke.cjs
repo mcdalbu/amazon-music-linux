@@ -33,12 +33,16 @@ async function until(condition, label, timeout = 12000) {
   throw Error("Timeout: " + label);
 }
 async function script(app, source) {
-  const n = app.reports?.length || 0;
-  app.engine.send("script", { script: source });
-  await until(() => (app.reports?.length || 0) > n, "fixture report");
-  const report = app.reports.at(-1);
+  app.scriptSequence = (app.scriptSequence || 0) + 1;
+  const requestId = app.scriptSequence;
+  app.engine.send("script", { script: source, requestId });
+  await until(
+    () => app.reports?.some((r) => r.requestId === requestId),
+    "fixture result " + requestId,
+  );
+  const report = app.reports.find((r) => r.requestId === requestId);
   if (report.error) throw Error(report.error);
-  return report;
+  return report.result;
 }
 function click(app, x, y) {
   for (const type of ["mouseDown", "mouseUp"])
@@ -47,6 +51,7 @@ function click(app, x, y) {
     });
 }
 function smoke(app) {
+  if (process.env.AMZML_MEMORY_TEST === "1") return memorySmoke(app);
   (async () => {
     console.log("SMOKE stage startup");
     await until(() => app.ready && app.frames > 0, "first frame", 25000);
@@ -55,6 +60,13 @@ function smoke(app) {
     assert.equal(app.engine.state.sandbox, true);
     assert.ok(app.window instanceof Adw.ApplicationWindow);
     assert.equal(app.app.getWindows().length, 1);
+    await until(() => {
+      const frame = bridge.capture(
+        BigInt(gi.System.addressOf(app.picture)),
+        "",
+      );
+      return frame[0] === app.overlay.getWidth() * app.window.getScaleFactor();
+    }, "HiDPI frame after startup resize");
     const capture = bridge.capture(
       BigInt(gi.System.addressOf(app.picture)),
       process.env.AMZML_CAPTURE ||
@@ -133,9 +145,54 @@ function smoke(app) {
     await wait(300);
     assert.equal(app.background, true);
     assert.equal(app.media.paused, false);
+    await until(
+      () => app.engine.capturePaused,
+      "capture pause acknowledgement",
+    );
+    await until(
+      () => app.picture.getPaintable() === null,
+      "hidden GTK texture released",
+    );
+    assert.equal(
+      fs.fstatSync(app.engine.memory).blocks,
+      0,
+      "hidden software frame pages reclaimed",
+    );
+    await until(
+      () =>
+        app.memoryReport?.status === "complete" &&
+        app.memoryReport.reason === "background",
+      "automatic background memory cleanup",
+      22000,
+    );
+    assert.equal(
+      app.media.paused,
+      false,
+      "cleanup must preserve background audio",
+    );
     await player.Pause();
     await until(() => app.media.paused, "background pause");
+    const hiddenFrames = app.frames;
     await root.Raise();
+    await until(() => app.frames > hiddenFrames, "fresh frame after reopen");
+    const restored = bridge.capture(
+      BigInt(gi.System.addressOf(app.picture)),
+      "",
+    );
+    assert.equal(restored[2], 1, "reopened player must not remain black");
+    const lastTrim = app.memoryReport.count;
+    await script(
+      app,
+      "globalThis.memoryTestWaste = Array.from({length: 400000}, (_,i) => ({i, value:'temporary-'+i})); globalThis.memoryTestWaste = null; report()",
+    );
+    app.engine.send("trim-memory");
+    await until(
+      () =>
+        app.memoryReport?.status === "complete" &&
+        app.memoryReport.count > lastTrim,
+      "manual memory cleanup",
+    );
+    console.log("MEMORY_CLEANUP", JSON.stringify(app.memoryReport));
     await wait(300);
     app.command("mute-on");
     await wait(100);
@@ -178,12 +235,24 @@ function smoke(app) {
       () => app.engine.state.frameRate === app.rate,
       "interactive monitor refresh",
     );
-    const before = app.frames;
+    const before = app.frames,
+      receivedBefore = app.engine.receivedFrames;
     await script(
       app,
-      "(()=>{let n=0;function animate(){document.body.style.backgroundColor=n++%2?'#163848':'#284252';if(n<35)requestAnimationFrame(animate);else console.info('AMZML_TEST '+JSON.stringify({animated:n}));}requestAnimationFrame(animate)})()",
+      "new Promise(resolve=>{let n=0;function animate(){document.body.style.backgroundColor=n++%2?'#163848':'#284252';if(n<100)requestAnimationFrame(animate);else resolve({animated:n});}requestAnimationFrame(animate)})",
     );
-    assert.ok(app.frames - before >= 8, "Continuous GPU frames must not stall");
+    await until(
+      () => app.engine.receivedFrames - receivedBefore >= 8,
+      "continuous frames after memory cleanup",
+      5000,
+    );
+    console.log(
+      "FRAME_RECOVERY",
+      JSON.stringify({
+        presented: app.frames - before,
+        received: app.engine.receivedFrames - receivedBefore,
+      }),
+    );
     bus.disconnect();
     console.log(
       "NODE_SMOKE PASS " +
@@ -206,6 +275,91 @@ function smoke(app) {
   })()
     .catch((error) => {
       console.error("NODE_SMOKE FAIL", error);
+      app.exitCode = 1;
+    })
+    .finally(() => app.quit());
+}
+function memorySmoke(app) {
+  (async () => {
+    await until(
+      () => app.ready && app.frames > 0 && app.media.available,
+      "memory fixture ready",
+      25000,
+    );
+    app.save({ background: true });
+    app.command("play");
+    await until(() => !app.media.paused, "local audio playing");
+    app.hide();
+    await until(
+      () => app.engine.capturePaused && app.picture.getPaintable() === null,
+      "hidden frames released",
+    );
+    assert.equal(fs.fstatSync(app.engine.memory).blocks, 0);
+    await until(
+      () =>
+        app.memoryReport?.status === "complete" &&
+        app.memoryReport.reason === "background",
+      "one-shot background reclamation",
+      22000,
+    );
+    assert.equal(app.media.paused, false);
+    const beforeShow = app.frames;
+    app.command("open");
+    await until(
+      () => app.frames > beforeShow,
+      "fresh frame after memory reclamation",
+    );
+    const frame = bridge.capture(BigInt(gi.System.addressOf(app.picture)), "");
+    assert.equal(frame[2], 1);
+    await script(
+      app,
+      "globalThis.memoryTestWaste=Array.from({length:400000},(_,i)=>({i,value:'temporary-'+i}));globalThis.memoryTestWaste=null;report()",
+    );
+    const previous = app.memoryReport.count;
+    app.engine.send("trim-memory");
+    await until(
+      () =>
+        app.memoryReport?.status === "complete" &&
+        app.memoryReport.count > previous,
+      "manual reclamation",
+    );
+    const report = app.memoryReport;
+    assert.ok(report.afterJSHeapBytes < report.beforeJSHeapBytes);
+    const receivedBefore = app.engine.receivedFrames;
+    await script(
+      app,
+      "new Promise(resolve=>{let n=0;function animate(){document.body.style.backgroundColor=n++%2?'#163848':'#284252';if(n<100)requestAnimationFrame(animate);else resolve(n);}requestAnimationFrame(animate)})",
+    );
+    await until(
+      () => app.engine.receivedFrames - receivedBefore >= 8,
+      "frame stream after cleanup",
+    );
+    assert.equal(app.media.paused, false);
+    app.command("next");
+    await until(
+      () => app.media.title === "Segunda faixa",
+      "next after cleanup",
+    );
+    app.command("previous");
+    await until(
+      () => app.media.title === "Faixa de teste",
+      "previous after cleanup",
+    );
+    app.command("pause");
+    await until(() => app.media.paused, "pause after cleanup");
+    console.log(
+      "MEMORY_SMOKE PASS",
+      JSON.stringify({
+        ...report,
+        sharedGPU: app.engine.state.sharedGPU,
+        receivedFrames: app.engine.receivedFrames - receivedBefore,
+        memfdAllocatedBytes: fs.fstatSync(app.engine.memory).blocks * 512,
+      }),
+    );
+    app.exitCode = 0;
+  })()
+    .catch((error) => {
+      console.error("MEMORY_SMOKE FAIL", error);
       app.exitCode = 1;
     })
     .finally(() => app.quit());

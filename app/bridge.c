@@ -3,6 +3,8 @@
 #include <gtk/gtk.h>
 #include <sys/socket.h>
 #include <sys/mman.h>
+#include <fcntl.h>
+#include <linux/falloc.h>
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -79,7 +81,22 @@ static napi_value capture(napi_env e,napi_callback_info ci){
  char file[4096];size_t length=0;if(napi_get_value_string_utf8(e,a[1],file,sizeof(file),&length)==napi_ok&&length)gdk_texture_save_to_png(t,file);
  napi_value out;napi_create_array_with_length(e,3,&out);napi_set_element(e,out,0,number(e,w));napi_set_element(e,out,1,number(e,h));napi_set_element(e,out,2,number(e,varied));return out;
 }
+static napi_value discard_slot(napi_env e,napi_callback_info ci){
+ size_t n=2;napi_value a[2];napi_get_cb_info(e,ci,&n,a,NULL,NULL);int fd=integer(e,a[0]),slot=integer(e,a[1]);
+ if(fd<3||slot<0||slot>2)return fail(e,"Invalid frame slot");
+ int result=fallocate(fd,FALLOC_FL_PUNCH_HOLE|FALLOC_FL_KEEP_SIZE,(off_t)slot*FRAME_BYTES,FRAME_BYTES);
+ return number(e,result==0);
+}
+static napi_value present_shared(napi_env e,napi_callback_info ci){
+ size_t n=5;napi_value a[5];napi_get_cb_info(e,ci,&n,a,NULL,NULL);GtkPicture*p=picture(e,a[0]);
+ int w=integer(e,a[1]),h=integer(e,a[2]),fd=integer(e,a[3]),slot=integer(e,a[4]);
+ size_t size=(size_t)w*h*4;if(!p||!GTK_IS_PICTURE(p)||fd<3||slot<0||slot>2||w<1||h<1||w>8192||h>8192||size>FRAME_BYTES)return fail(e,"Invalid shared bitmap");
+ guchar*data=g_malloc(size);size_t done=0;while(done<size){ssize_t got=pread(fd,data+done,size-done,(off_t)slot*FRAME_BYTES+done);
+  if(got<0&&errno==EINTR)continue;if(got<=0){g_free(data);return fail(e,"Incomplete shared bitmap");}done+=got;}
+ GBytes*bytes=g_bytes_new_take(data,size);GdkTexture*t=gdk_memory_texture_new(w,h,GDK_MEMORY_B8G8R8A8_PREMULTIPLIED,bytes,w*4);g_bytes_unref(bytes);
+ gtk_picture_set_paintable(p,GDK_PAINTABLE(t));g_object_unref(t);return number(e,1);
+}
 NAPI_MODULE_INIT(){napi_property_descriptor properties[]={
- {"capture",0,capture,0,0,0,napi_default,0},{"channels",0,channels,0,0,0,napi_default,0},{"receiveTexture",0,receive_texture,0,0,0,napi_default,0},
+ {"discardSlot",0,discard_slot,0,0,0,napi_default,0},{"presentShared",0,present_shared,0,0,0,napi_default,0},{"capture",0,capture,0,0,0,napi_default,0},{"channels",0,channels,0,0,0,napi_default,0},{"receiveTexture",0,receive_texture,0,0,0,napi_default,0},
  {"onRelease",0,on_release,0,0,0,napi_default,0},{"presentGPU",0,present_gpu,0,0,0,napi_default,0},{"presentBitmap",0,present_bitmap,0,0,0,napi_default,0}};
  napi_define_properties(env,exports,sizeof(properties)/sizeof(properties[0]),properties);return exports;}

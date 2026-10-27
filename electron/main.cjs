@@ -6,6 +6,7 @@ const net = require('node:net');
 const path = require('node:path');
 const fs = require('node:fs');
 const { isAmazonURL, isMusicURL, externalURL, cleanMedia } = require('./policy.cjs');
+const { MemoryMaintenance } = require('./memory.cjs');
 const fd = Number(process.env.AMZML_ENGINE_FD);
 if (!Number.isInteger(fd) || fd < 3 || !process.env.AMZML_PROFILE) throw new Error('Start the app through its GTK launcher');
 const channel = new net.Socket({ fd, readable: true, writable: true });
@@ -15,7 +16,7 @@ const frameSlots=[0,0,0]; let frameSequence=0;
 const test = process.env.AMZML_TEST === '1';
 const initialURL = process.env.AMZML_URL;
 let window, closing = false, blocked = false, pendingFrame = null, pendingEvents = [];
-let displayScale = 1, userZoom = 0;
+let displayScale = 1, userZoom = 0, foreground = true;
 let renderWidth=1280,renderHeight=780;
 let requestedFrameRate=60, documentPainted=false, documentLoaded=false;
 let activeUntil=0, idleTimer=null;
@@ -43,6 +44,7 @@ const gpuBridge=sharedGPU ? require('./gpu-bridge.node') : null;
 const textureLeases=new Map();let textureSequence=0, sharedFrames=0;
 let tray = null, trayError = '', traySignature = '';
 let component = { id: 'widevine', status: 'preparing', version: '' };
+const memoryMaintenance = new MemoryMaintenance(() => !closing && window && !window.isDestroyed() ? window.webContents : null, report => event(18, report));
 function write(header, body) {
   const json = Buffer.from(JSON.stringify(header));
   const size = Buffer.alloc(4); size.writeUInt32BE(json.length);
@@ -120,6 +122,7 @@ channel.on('drain', () => {
 function stop() {
   if (closing) return;
   closing = true; pendingFrame = null;
+  memoryMaintenance.close();
   clearTimeout(idleTimer);idleTimer=null;
   if (tray) { tray.destroy(); tray = null; }
   if (window && !window.isDestroyed()) window.destroy();
@@ -238,9 +241,12 @@ function receive(chunk) {
           break;
         }
         case 'focus': if (message.active) wc.focus(); break;
+        case 'trim-memory': memoryMaintenance.trim(); break;
         case 'foreground':
+          foreground = message.active === true;
+          memoryMaintenance.setBackground(message.active !== true);
           if (message.active) { renderingActivity(); wc.startPainting(); wc.invalidate(); }
-          else { wc.stopPainting(); pendingFrame = null; }
+          else { wc.stopPainting(); pendingFrame = null; event(19, 'capture-paused'); }
           break;
         case 'tray': updateTray(message); break;
         case 'mute': wc.setAudioMuted(message.muted === true); break;
@@ -251,7 +257,14 @@ function receive(chunk) {
         }
         case 'key': renderingActivity(); wc.sendInputEvent(message.event); break;
         case 'text': renderingActivity(); wc.insertText(message.text); break;
-        case 'script': wc.executeJavaScript(message.script, true).catch(error => { if (test) event(11,{error:error.message}); }); break;
+        case 'script':
+          wc.executeJavaScript(message.script, true).then(result => {
+            if(test && Number.isSafeInteger(message.requestId)) {
+              const value=JSON.stringify(result ?? null);
+              event(11,value.length<4096?{requestId:message.requestId,result:result ?? null}:{requestId:message.requestId,error:'Oversized test result'});
+            }
+          }).catch(error => { if (test) event(11,{requestId:message.requestId,error:error.message}); });
+          break;
         case 'media': if (observe(wc.getURL()) && ['play','pause','toggle','next','previous'].includes(message.action)) wc.send('media-command',message.action); break;
         case 'load': guardedLoad(message.url); break;
         case 'reload': wc.reload(); break;
@@ -295,7 +308,7 @@ function createWindow(url) {
   wc.setFrameRate(60);
   const current=()=>!closing && window && !window.isDestroyed() && window.webContents===wc;
   wc.on('paint', (event_, _dirty, image) => {
-    if(!current()){event_.texture?.release();return;}
+    if(!current() || !foreground){event_.texture?.release();return;}
     if(event_.texture) sharedFrame(event_.texture);else frame(image);
   });
   wc.on('media-started-playing', () => { if (observe(wc.getURL())) wc.send('media-playback',true); });

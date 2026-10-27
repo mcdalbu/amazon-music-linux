@@ -4,7 +4,12 @@ const fs = require("node:fs"),
   { pathToFileURL } = require("node:url"),
   { spawn } = require("node:child_process");
 const { gi, GLib, Gio, Gtk, Gdk, Adw } = require("./gi.cjs");
-const { Settings, refreshRate, drmState, scrollInput } = require("./settings.cjs");
+const {
+  Settings,
+  refreshRate,
+  drmState,
+  scrollInput,
+} = require("./settings.cjs");
 const {
   REGIONS,
   isAmazonURL,
@@ -50,6 +55,7 @@ class MusicApp {
     this.drm = { ready: false, error: "" };
     this.tick = 0;
     this.frames = 0;
+    this.lastPresent = 0;
     this.rate = 0;
     this.background = false;
     this.closing = false;
@@ -125,6 +131,7 @@ class MusicApp {
     const menu = new Gio.Menu();
     for (const [label, name] of [
       ["Preferências", "preferences"],
+      ["Reduzir uso de memória", "trim-memory"],
       ["Ampliar", "zoom-in"],
       ["Reduzir", "zoom-out"],
       ["Zoom padrão", "zoom-reset"],
@@ -181,6 +188,7 @@ class MusicApp {
     this.toolbar.setContent(this.stack);
     this.window.setContent(this.toolbar);
     this.action("preferences", () => this.preferences(), ["<Control>comma"]);
+    this.action("trim-memory", () => this.engine?.send("trim-memory"));
     this.action("home", () => this.home(), ["<Alt>Home"]);
     this.action("reload", () => this.engine?.send("reload"), ["<Control>r"]);
     this.action("quit", () => this.quit(), ["<Control>q"]);
@@ -331,7 +339,17 @@ class MusicApp {
               ? "toggle"
               : text,
         );
-      else if (kind === 11) {
+      else if (kind === 18) {
+        this.memoryReport = JSON.parse(text);
+        if (this.memoryRow)
+          this.memoryRow.setSubtitle(
+            this.memoryReport.status === "complete"
+              ? "Limpeza concluída. A memória ainda em uso pela página é mantida."
+              : this.memoryReport.status === "running"
+                ? "Liberando memória não utilizada…"
+                : "A limpeza não está disponível neste momento.",
+          );
+      } else if (kind === 11) {
         this.reports ??= [];
         this.reports.push(JSON.parse(text));
       }
@@ -393,8 +411,10 @@ class MusicApp {
     if (process.env.AMZML_DEBUG === "1")
       console.log("TICK", !!this.engine.pending);
     if (!this.closing && !this.background && this.engine) {
-      if (this.engine.present(BigInt(gi.System.addressOf(this.picture))))
+      if (this.engine.present(BigInt(gi.System.addressOf(this.picture)))) {
         this.frames++;
+        this.lastPresent = performance.now();
+      }
       if (performance.now() < this.activeUntil) return true;
     }
     this.tick = 0;
@@ -409,10 +429,17 @@ class MusicApp {
         "O Amazon Music demorou para responder. Verifique sua conexão.",
       );
     }
-    // Capture startup frames while the loading page is mapped instead of Picture.
-    if (this.engine.pending && !this.picture.getMapped() && !this.background) {
-      if (this.engine.present(BigInt(gi.System.addressOf(this.picture))))
+    // The compositor can pause GTK ticks for covered windows. Consume a
+    // pending frame at most at 4 Hz until normal frame-clock delivery resumes.
+    if (
+      this.engine.pending &&
+      !this.background &&
+      (!this.picture.getMapped() || performance.now() - this.lastPresent > 250)
+    ) {
+      if (this.engine.present(BigInt(gi.System.addressOf(this.picture)))) {
         this.frames++;
+        this.lastPresent = performance.now();
+      }
     }
     if (Date.now() - this.maintenance > 1000) {
       this.maintenance = Date.now();
@@ -461,14 +488,18 @@ class MusicApp {
     if (!settings.value.background || this.closing) return;
     this.background = true;
     this.window.setVisible(false);
-    this.engine?.send("foreground", { active: false });
+    this.engine?.setForeground(false);
+    GLib.idleAdd(0, () => {
+      if (this.background && !this.closing) this.picture.setPaintable(null);
+      return false;
+    });
   }
   command(command) {
     if (command === "quit") return this.quit();
     if (command === "open") {
       this.background = false;
       this.presentWindow();
-      this.engine?.send("foreground", { active: true });
+      this.engine?.setForeground(true);
       this.syncSize();
       if (this.engine?.pending) this.schedule();
     } else if (command === "mute-on" || command === "mute-off")
@@ -522,6 +553,7 @@ class MusicApp {
     dialog.on("closed", () => {
       this.prefs = null;
       this.drmRow = null;
+      this.memoryRow = null;
     });
     const page = new Adw.PreferencesPage();
     dialog.add(page);
@@ -572,6 +604,18 @@ class MusicApp {
     this.backgroundRow = background;
     const perf = new Adw.PreferencesGroup({ title: "Desempenho" });
     page.add(perf);
+    this.memoryRow = new Adw.ActionRow({
+      title: "Uso de memória",
+      subtitle:
+        "A limpeza também é feita uma vez após 15 segundos em segundo plano.",
+    });
+    const reduceMemory = new Gtk.Button({
+      label: "Reduzir agora",
+      valign: Gtk.Align.CENTER,
+    });
+    reduceMemory.on("clicked", () => this.engine?.send("trim-memory"));
+    this.memoryRow.addSuffix(reduceMemory);
+    perf.add(this.memoryRow);
     const acceleration = new Adw.SwitchRow({
       title: "Aceleração de hardware",
       subtitle:

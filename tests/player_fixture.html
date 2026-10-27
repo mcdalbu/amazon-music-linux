@@ -28,5 +28,5 @@ function useSessionOnlyPlayer(){
  navigator.mediaSession.setActionHandler('pause',()=>navigator.mediaSession.playbackState='paused');
 }
 let clicks=0; document.querySelector('#counter').onclick=()=>{clicks++;document.querySelector('#counter').textContent='Clique de teste: '+clicks};
-function report(){console.info('AMZML_TEST '+JSON.stringify({dpr:devicePixelRatio,width:innerWidth,height:innerHeight,text:document.querySelector('#entry').value,clicks,scroll:scrollY,quality:document.querySelector('#quality').value}));}
+function report(){const state={dpr:devicePixelRatio,width:innerWidth,height:innerHeight,text:document.querySelector('#entry').value,clicks,scroll:scrollY,quality:document.querySelector('#quality').value};console.info('AMZML_TEST '+JSON.stringify(state));return state;}
 </script></html>

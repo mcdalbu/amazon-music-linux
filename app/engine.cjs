@@ -62,6 +62,8 @@ class Engine {
     this.pending = null;
     this.buffer = Buffer.alloc(0);
     this.closed = false;
+    this.foreground = true;
+    this.receivedFrames = 0;
     const [parent, child, memory, texture, textureChild] = bridge.channels();
     this.memory = memory;
     this.textureFD = texture;
@@ -185,13 +187,23 @@ class Engine {
         typeof message.text === "string"
       ) {
         if (message.kind === 16) this.state = JSON.parse(message.text);
-        else this.onEvent(message.kind, message.text);
+        else if (message.kind === 19) {
+          this.capturePaused = true;
+          if (!this.foreground)
+            for (let slot = 0; slot < 3; slot++)
+              bridge.discardSlot(this.memory, slot);
+        } else this.onEvent(message.kind, message.text);
       } else throw Error("Invalid engine event");
     }
   }
   enqueue(frame) {
+    this.receivedFrames++;
     if (process.env.AMZML_DEBUG === "1")
       console.log("FRAME_IN", frame.gpu, frame.info.width, frame.info.height);
+    if (!this.foreground) {
+      this.release(frame);
+      return;
+    }
     if (this.pending) this.release(this.pending);
     this.pending = frame;
     this.onFrame();
@@ -200,11 +212,13 @@ class Engine {
     if (frame.gpu) {
       for (const p of frame.planes) fs.closeSync(p.fd);
       this.send("texture-release", { sequence: frame.info.sequence });
-    } else
+    } else {
+      if (!this.foreground) bridge.discardSlot(this.memory, frame.info.slot);
       this.send("frame-release", {
         slot: frame.info.slot,
         sequence: frame.info.sequence,
       });
+    }
   }
   present(address) {
     const frame = this.pending;
@@ -221,31 +235,28 @@ class Engine {
         return false;
       }
     } else {
-      const data = Buffer.allocUnsafe(frame.info.bytes);
       try {
-        let offset = 0;
-        while (offset < data.length) {
-          const n = fs.readSync(
-            this.memory,
-            data,
-            offset,
-            data.length - offset,
-            frame.info.slot * MAX + offset,
-          );
-          if (!n) throw Error("Incomplete frame");
-          offset += n;
-        }
-        bridge.presentBitmap(
+        bridge.presentShared(
           address,
           frame.info.width,
           frame.info.height,
-          data,
+          this.memory,
+          frame.info.slot,
         );
       } finally {
         this.release(frame);
       }
     }
     return true;
+  }
+  setForeground(active) {
+    this.foreground = active;
+    this.capturePaused = false;
+    if (!active) {
+      if (this.pending) this.release(this.pending);
+      this.pending = null;
+    }
+    this.send("foreground", { active });
   }
   send(command, args = {}) {
     if (!this.closed && !this.socket.destroyed)

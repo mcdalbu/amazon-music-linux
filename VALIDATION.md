@@ -62,3 +62,57 @@ Electron visível. Isso não valida streaming com uma conta Amazon. Log local:
 
 A sensibilidade do scroll aumentou 20% para roda do mouse e touchpad. O teste
 unitário verifica movimentos fracionários e direção em ambos os eixos.
+
+
+# Validação de memória — 0.5.1
+
+A ação manual de redução de memória usa a conexão interna do debugger Electron
+para solicitar coleta de lixo e pressão moderada ao Chromium, sem abrir uma porta
+de depuração. A ação não recarrega a página nem limpa cookies ou armazenamento.
+Uma conexão de debugger já existente é respeitada e a conexão temporária é sempre
+removida, inclusive quando a solicitação falha.
+
+A limpeza em segundo plano é uma tentativa única após 15 segundos; reabrir cancela
+o timer. O teste integrado verifica áudio ativo depois dessa limpeza, liberação
+da textura GTK, zero páginas alocadas no memfd de frames e novo frame com conteúdo
+quando a janela é reaberta. O teste manual cria lixo JavaScript temporário; não é
+uma simulação do consumo de uma conta Amazon. Em uma execução local, o heap usado
+caiu de 26,8 MB para 1,3 MB após a coleta. O resultado não promete a mesma redução
+na página real, cujos objetos ainda referenciados não podem ser liberados.
+
+O modo software agora lê o slot compartilhado diretamente em um GBytes nativo,
+eliminando o Buffer JavaScript temporário e a cópia adicional por frame. Há um
+acknowledgement da pausa de captura antes de descartar todas as páginas do memfd;
+isso evita descartar buffers que possam estar em uso durante uma reabertura rápida.
+Frames de uma janela oculta são devolvidos sem serem apresentados.
+
+A entrega de frames tem fallback limitado quando o compositor suspende os ticks
+de uma janela coberta. Os testes distinguem frames recebidos de frames apresentados
+para não confundir oclusão da janela com falha do renderizador. O alvo de interação
+e a sensibilidade de scroll aumentada em 20% continuam preservados.
+
+
+Resultado final 0.5.1: os 16 testes Node.js passaram. O teste completo em software
+passou, incluindo entrada, MPRIS, áudio, temas, memória e recuperação de frames.
+A suíte específica de memória passou a partir do RPM extraído, com os runtimes do
+pacote, tanto em GPU quanto em software. As duas execuções mantiveram áudio ativo,
+liberaram a textura e as páginas do memfd enquanto ocultas, restauraram uma imagem
+não uniforme ao reabrir, coletaram lixo manualmente e receberam 100 novos frames
+de animação após a coleta. Próxima/anterior e pausa continuaram funcionando.
+
+No heap da fixture do RPM, a medição ficou aproximadamente 26,8 MB antes e 1,3 MB
+depois. O memfd volta a alocar páginas no modo software quando a janela reaparece;
+a liberação verificada é enquanto ela está escondida. Os logs são
+`build/memory-packaged-gpu.log` e `build/memory-packaged-software.log`.
+
+Algumas execuções do smoke geral tiveram timeouts intermitentes na etapa de
+entrada sintética de texto. O teste específico de memória evita essa etapa e não
+serve como validação adicional do teclado. A reprodução e os controles de memória
+foram verificados separadamente em ambos os caminhos de renderização.
+
+Para repetir a suíte focada:
+
+```bash
+AMZML_MEMORY_TEST=1 ./scripts/run.sh --smoke-test --enable-gpu
+AMZML_MEMORY_TEST=1 ./scripts/run.sh --smoke-test --disable-gpu
+```
