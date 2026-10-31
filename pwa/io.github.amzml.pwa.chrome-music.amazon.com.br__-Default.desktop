@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Amazon Music (Chromium)
+Comment=Amazon Music in a Chromium app window with desktop media controls
+Comment[pt_BR]=Amazon Music em uma janela Chromium com controles de mídia do desktop
+Exec=amazon-music-pwa
+TryExec=amazon-music-pwa
+Icon=io.github.amzml.AmazonMusicPWA
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+StartupWMClass=io.github.amzml.AmazonMusicPWA
+StartupNotify=true
+Keywords=Music;Amazon;Streaming;PWA;

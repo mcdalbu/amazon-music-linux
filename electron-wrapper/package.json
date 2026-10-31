@@ -1,0 +1,8 @@
+{
+  "name": "amazon-music-electron",
+  "productName": "Amazon Music",
+  "version": "0.7.1",
+  "main": "main.cjs",
+  "desktopName": "io.github.amzml.AmazonMusicElectron.desktop",
+  "license": "MIT"
+}

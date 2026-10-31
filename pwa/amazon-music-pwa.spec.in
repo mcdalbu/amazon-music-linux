@@ -1,0 +1,40 @@
+%global debug_package %{nil}
+Name:           amazon-music-pwa
+Version:        @VERSION@
+Release:        1%{?dist}
+Summary:        Amazon Music in a standalone Chromium web-app window
+License:        MIT
+Source0:        %{name}-%{version}.tar.gz
+BuildArch:      noarch
+Requires:       /bin/sh
+Requires:       (chromium or google-chrome-stable)
+
+%description
+Independent lightweight Amazon Music wrapper using the system Chromium or
+Google Chrome browser, an isolated profile and native MPRIS media controls.
+Includes the Amazon smile icon and a desktop entry matching the Wayland app ID.
+An Amazon account and browser support for the site's codecs and Widevine are
+required for protected streaming.
+
+%prep
+%setup -q
+
+%build
+
+%install
+install -Dm755 pwa/amazon-music-pwa %{buildroot}%{_bindir}/amazon-music-pwa
+install -Dm644 pwa/io.github.amzml.pwa.chrome-music.amazon.com.br__-Default.desktop %{buildroot}%{_datadir}/applications/io.github.amzml.pwa.chrome-music.amazon.com.br__-Default.desktop
+install -Dm644 assets/io.github.amzml.AmazonMusic.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/io.github.amzml.AmazonMusicPWA.svg
+install -Dm644 assets/io.github.amzml.AmazonMusic.png %{buildroot}%{_datadir}/icons/hicolor/512x512/apps/io.github.amzml.AmazonMusicPWA.png
+
+%files
+%license LICENSE
+%doc pwa/README.md
+%{_bindir}/amazon-music-pwa
+%{_datadir}/applications/io.github.amzml.pwa.chrome-music.amazon.com.br__-Default.desktop
+%{_datadir}/icons/hicolor/scalable/apps/io.github.amzml.AmazonMusicPWA.svg
+%{_datadir}/icons/hicolor/512x512/apps/io.github.amzml.AmazonMusicPWA.png
+
+%changelog
+* Sat Oct 31 2026 Amazon Music Linux contributors - @VERSION@-1
+- Add standalone system-Chromium wrapper with matching shelf identity and MPRIS.

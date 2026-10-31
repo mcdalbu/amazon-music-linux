@@ -1,0 +1,55 @@
+#!/bin/sh
+# Standalone Chromium web-app window; no embedded browser or remote-debugging port.
+set -eu
+
+case "${1:-}" in
+  --help|-h)
+    cat <<'HELP'
+Usage: amazon-music-pwa [--help]
+Open Amazon Music Brasil in a dedicated Chromium app window.
+AMZML_PWA_BROWSER selects a Chromium/Chrome executable (a path, not a command).
+AMZML_PWA_PROFILE overrides the dedicated browser data directory.
+The desktop mini player uses Chromium's native MPRIS / Media Session support.
+HELP
+    exit 0 ;;
+  '') ;;
+  *) printf 'Unknown option: %s\n' "$1" >&2; exit 2 ;;
+esac
+
+browser=${AMZML_PWA_BROWSER:-}
+if [ -z "$browser" ]; then
+  for candidate in chromium-browser chromium google-chrome-stable google-chrome; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      browser=$candidate
+      break
+    fi
+  done
+fi
+if [ -z "$browser" ] || ! command -v "$browser" >/dev/null 2>&1; then
+  echo 'Install Chromium or Google Chrome, or set AMZML_PWA_BROWSER to its executable.' >&2
+  exit 127
+fi
+
+profile=${AMZML_PWA_PROFILE:-${XDG_DATA_HOME:-$HOME/.local/share}/amazon-music-pwa/chromium}
+# Chromium requires an absolute user-data-dir. Do not let a relative override
+# silently select the user's normal browser session.
+case "$profile" in
+  /*) ;;
+  *) echo 'AMZML_PWA_PROFILE / XDG_DATA_HOME must be an absolute path.' >&2; exit 2 ;;
+esac
+umask 077
+mkdir -p "$profile"
+
+# --class alone does not set an app-mode Wayland ID. Match Chromium's generated
+# URL/profile ID to the installed desktop filename, including our namespace.
+export CHROME_WEB_APP_DESKTOP_ID_PREFIX=io.github.amzml.pwa.
+export CHROME_DESKTOP=io.github.amzml.pwa.chrome-music.amazon.com.br__-Default.desktop
+unset ELECTRON_RUN_AS_NODE
+exec "$browser" \
+  "--user-data-dir=$profile" \
+  --profile-directory=Default \
+  --app=https://music.amazon.com.br/ \
+  --class=io.github.amzml.AmazonMusicPWA \
+  --no-first-run \
+  --no-default-browser-check \
+  --enable-features=HardwareMediaKeyHandling,MediaSessionService

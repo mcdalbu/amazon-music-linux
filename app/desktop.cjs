@@ -30,10 +30,10 @@ class Root extends Interface {
     return false;
   }
   get Identity() {
-    return "Amazon Music Linux";
+    return this.host.identity;
   }
   get DesktopEntry() {
-    return "io.github.amzml.AmazonMusic";
+    return this.host.desktopEntry;
   }
   get SupportedUriSchemes() {
     return [];
@@ -223,8 +223,10 @@ function imageValid(bytes) {
   return false;
 }
 class Desktop {
-  constructor(root, directory, command, test = false) {
+  constructor(root, directory, command, test = false, options = {}) {
     this.command = command;
+    this.identity = options.identity || "Amazon Music Linux";
+    this.desktopEntry = options.desktopEntry || "io.github.amzml.AmazonMusic";
     this.media = { available: false, paused: true };
     this.muted = false;
     this.generation = 0;
@@ -241,7 +243,7 @@ class Desktop {
     this.bus.export(OBJECT, new Root(this));
     this.bus.export(OBJECT, this.player);
     this.name =
-      "org.mpris.MediaPlayer2.amazon_music_linux" +
+      (options.busName || "org.mpris.MediaPlayer2.amazon_music_linux") +
       (test ? ".test" + process.pid : "");
     this.bus
       .requestName(this.name, 4)

@@ -1,0 +1,18 @@
+[Desktop Entry]
+Type=Application
+Name=Amazon Music
+Comment=Amazon Music with a tray icon, background playback and desktop media controls
+Comment[pt_BR]=Amazon Music com indicador, reprodução em segundo plano e controles de mídia
+Exec=amazon-music-electron
+Icon=io.github.amzml.AmazonMusicElectron
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+StartupWMClass=io.github.amzml.AmazonMusicElectron
+StartupNotify=true
+Keywords=Music;Amazon;Streaming;
+Actions=Background;
+
+[Desktop Action Background]
+Name=Run in background
+Name[pt_BR]=Executar em segundo plano
+Exec=amazon-music-electron --background

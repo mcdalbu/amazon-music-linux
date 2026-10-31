@@ -1,0 +1,69 @@
+%global debug_package %{nil}
+%global __os_install_post %{nil}
+%global _build_id_links none
+Name:           amazon-music-electron
+Version:        @VERSION@
+Release:        1%{?dist}
+Summary:        Amazon Music Electron wrapper with tray and background playback
+License:        MIT AND BSD-3-Clause AND LGPL-2.1-or-later
+Source0:        %{name}-%{version}.tar.gz
+AutoReqProv:    no
+Requires:       gtk3
+Requires:       nss
+Requires:       nspr
+Requires:       alsa-lib
+Requires:       at-spi2-atk
+Requires:       libdrm
+Requires:       mesa-libgbm
+Requires:       libX11
+Requires:       libXcomposite
+Requires:       libXdamage
+Requires:       libXext
+Requires:       libXfixes
+Requires:       libXrandr
+Requires:       libxcb
+Requires:       libxkbcommon
+Requires:       cups-libs
+Requires:       dbus-libs
+Requires:       glib2
+Requires:       pango
+Requires:       cairo
+Requires:       libstdc++
+Requires:       libgcc
+Requires:       systemd-libs
+Requires:       expat
+Requires:       glibc >= 2.34
+Requires:       xdg-utils
+
+%description
+Standalone Amazon Music web wrapper with a bundled CastLabs Electron runtime.
+Includes a tray icon, close-to-background audio, GNOME MPRIS controls and a
+matching desktop/shelf icon. Chrome, Chromium and Node.js are not required.
+Amazon authentication and a working Widevine component are required for
+protected playback. GNOME requires a tray extension to display indicator icons.
+
+%prep
+%setup -q
+
+%build
+
+%install
+mkdir -p %{buildroot}/opt/%{name}
+cp -a payload/. %{buildroot}/opt/%{name}/
+install -Dm755 payload/electron-wrapper/amazon-music-electron %{buildroot}%{_bindir}/%{name}
+install -Dm644 payload/electron-wrapper/io.github.amzml.AmazonMusicElectron.desktop %{buildroot}%{_datadir}/applications/io.github.amzml.AmazonMusicElectron.desktop
+install -Dm644 payload/assets/io.github.amzml.AmazonMusic.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/io.github.amzml.AmazonMusicElectron.svg
+install -Dm644 payload/assets/io.github.amzml.AmazonMusic.png %{buildroot}%{_datadir}/icons/hicolor/512x512/apps/io.github.amzml.AmazonMusicElectron.png
+
+%files
+%{_bindir}/%{name}
+%{_datadir}/applications/io.github.amzml.AmazonMusicElectron.desktop
+%{_datadir}/icons/hicolor/scalable/apps/io.github.amzml.AmazonMusicElectron.svg
+%{_datadir}/icons/hicolor/512x512/apps/io.github.amzml.AmazonMusicElectron.png
+/opt/%{name}
+
+%changelog
+* Sat Oct 31 2026 Amazon Music Linux contributors - @VERSION@-1
+- Follow desktop portal color-scheme updates and use Amazon Music as display name.
+- Add a direct Electron window, tray controls, background audio and MPRIS.
+- Bundle the verified CastLabs runtime; no installed browser required.

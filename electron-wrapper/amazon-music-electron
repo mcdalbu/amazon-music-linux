@@ -1,0 +1,3 @@
+#!/bin/sh
+unset ELECTRON_RUN_AS_NODE CHROME_DESKTOP CHROME_WEB_APP_DESKTOP_ID_PREFIX
+exec /opt/amazon-music-electron/runtime/electron /opt/amazon-music-electron/electron-wrapper "$@"

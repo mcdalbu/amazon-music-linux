@@ -1,17 +1,24 @@
 {
   "name": "amazon-music-linux",
-  "productName": "Amazon Music Linux",
+  "productName": "Amazon Music",
   "version": "0.5.2",
   "description": "Amazon Music para Linux em Node.js com GTK4/libadwaita, Electron e MPRIS",
   "license": "MIT",
   "scripts": {
-    "start": "./scripts/run.sh",
+    "start": "./scripts/run-electron.sh",
     "test": "./scripts/test.sh",
     "build:native": "node scripts/build-native.cjs",
     "setup:runtimes": "node scripts/runtimes.cjs",
     "build:rpm": "node scripts/build.cjs",
+    "start:pwa": "./pwa/amazon-music-pwa",
+    "build:pwa": "node scripts/build-pwa.cjs",
+    "test:pwa:live": "node tests/pwa-live.cjs",
+    "start:electron": "./scripts/run-electron.sh",
+    "build:electron": "node scripts/build-electron.cjs",
+    "test:electron:live": "node tests/electron-live.cjs",
     "test:smoke": "./scripts/run.sh --smoke-test",
-    "test:smoke:gpu": "./scripts/run.sh --smoke-test --enable-gpu"
+    "test:smoke:gpu": "./scripts/run.sh --smoke-test --enable-gpu",
+    "start:gtk": "./scripts/run.sh"
   },
   "dependencies": {
     "dbus-next": "0.10.2",
