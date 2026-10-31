@@ -21,12 +21,15 @@ app.enableSandbox();
 // Use the user-namespace sandbox, as in the existing CastLabs runtime package.
 app.commandLine.appendSwitch('disable-setuid-sandbox');
 app.commandLine.appendSwitch('class', ID);
+// Keep the native frame/menu backend aligned with the GTK3 appearance bridge.
+app.commandLine.appendSwitch('gtk-version', '3');
 // Publish one app-specific MPRIS service, including DesktopEntry and Raise.
 app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling,MediaSessionService');
 if (test) app.commandLine.appendSwitch('disable-component-update');
-let window, tray, desktop, systemTheme, rendererDark, quitting = false, traySignature = '', hiddenOnce = false;
+let window, tray, desktop, systemTheme, nativeAppearance, nativeGtkBefore, rendererDark, quitting = false, traySignature = '', hiddenOnce = false;
 const backgroundColor = () => nativeTheme.shouldUseDarkColors ? '#101418' : '#ffffff';
 function themeChanged() {
+  nativeAppearance?.setDark(nativeTheme.shouldUseDarkColors);
   if (!window || window.isDestroyed()) return;
   window.setBackgroundColor(backgroundColor());
   if (test) window.webContents.executeJavaScript('matchMedia("(prefers-color-scheme: dark)").matches')
@@ -163,6 +166,8 @@ function createWindow() {
   wc.loadURL(test ? fixture : REGIONS[settings.region].url).catch(() => {});
 }
 async function start() {
+  nativeAppearance = require('./gtk-theme.node');
+  if (test) nativeGtkBefore = nativeAppearance.inspect();
   systemTheme = new SystemTheme(nativeTheme, themeChanged, test && process.env.AMZML_ELECTRON_THEME_PORTAL
     ? { service: process.env.AMZML_ELECTRON_THEME_PORTAL } : {});
   // The portal is authoritative on GNOME, even when the GTK theme name stays
@@ -189,6 +194,8 @@ async function start() {
         preferences: window.webContents.getLastWebPreferences(), offscreen: window.webContents.isOffscreen(), electron: process.versions.electron,
         appName: app.getName(), themeSource: nativeTheme.themeSource, dark: nativeTheme.shouldUseDarkColors,
         rendererDark, backgroundColor: window.getBackgroundColor(),
+        nativeGtk: nativeAppearance.inspect(),
+        nativeGtkBefore,
       }));
     }, 150);
     timer.unref();

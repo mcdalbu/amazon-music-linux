@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { prepare, digest } = require('./runtimes.cjs');
+require('./build-electron-theme.cjs');
 const root = path.resolve(__dirname, '..');
 const { version } = require('../electron-wrapper/package.json');
 const name = 'amazon-music-electron-' + version;

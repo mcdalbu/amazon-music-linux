@@ -8,6 +8,8 @@ electron/*.node
 
 app/*.node
 app/*.node.tmp
+electron-wrapper/*.node
+electron-wrapper/*.node.tmp
 .agents/
 .aws/
 .codex/

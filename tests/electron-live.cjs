@@ -46,6 +46,7 @@ async function main() {
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.CHROME_DESKTOP;
   delete env.CHROME_WEB_APP_DESKTOP_ID_PREFIX;
+  delete env.GTK_THEME;
   process_ = spawn(executable, installedApp ? [installedApp, '--smoke-test'] : ['--smoke-test'], {
     env,
     stdio: ['ignore', 'ignore', fs.openSync(path.join(dir, 'wayland.log'), 'w')],
@@ -59,10 +60,17 @@ async function main() {
   assert.equal(initial.offscreen, false);
   assert.equal(initial.appName, 'Amazon Music');
   await until(() => state().themeSource === 'dark' && state().rendererDark === true, 'initial system dark theme');
+  const nativeIsDark = () => state().nativeGtk?.preferDark === true &&
+    state().nativeGtk.menuRGB.every(value => value < 128) && state().nativeGtk.titlebarRGB.every(value => value < 128);
+  const nativeIsLight = () => state().nativeGtk?.preferDark === false &&
+    state().nativeGtk.menuRGB.every(value => value > 180) && state().nativeGtk.titlebarRGB.every(value => value > 180);
+  await until(nativeIsDark, 'actual GTK menu and titlebar dark colors');
   themePortal.change(2);
   await until(() => state().themeSource === 'light' && state().dark === false && state().rendererDark === false && state().backgroundColor?.toLowerCase() === '#ffffff', 'live system light theme');
+  await until(nativeIsLight, 'actual GTK menu and titlebar light colors');
   themePortal.change(1);
   await until(() => state().themeSource === 'dark' && state().dark === true && state().rendererDark === true, 'live system dark theme');
+  await until(nativeIsDark, 'GTK menu and titlebar switch back to dark');
   themePortal.change(0);
   await until(() => state().themeSource === 'light' && state().rendererDark === false, 'default system appearance');
   themePortal.change(1);
@@ -147,7 +155,7 @@ async function main() {
   await click('Sair');
   await until(() => process_.exitCode !== null, 'quit terminates background process');
   assert.equal(process_.exitCode, 0);
-  console.log('PASS: Amazon Music identity; live portal dark/light/default themes and renderer CSS preference; visible Electron window; shelf app ID; tray activation/play/pause/mute/quit; background audio; MPRIS artwork/next/previous/Raise; renderer sandbox.');
+  console.log('PASS: Amazon Music identity; actual GTK titlebar/menu colors, live portal dark/light/default themes and renderer CSS preference; visible Electron window; shelf app ID; tray activation/play/pause/mute/quit; background audio; MPRIS artwork/next/previous/Raise; renderer sandbox.');
   console.log('Test artifacts:', dir);
 }
 main().catch(error => { console.error(error); console.error('Test artifacts:', dir); process.exitCode = 1; }).finally(async () => {

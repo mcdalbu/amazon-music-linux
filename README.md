@@ -4,10 +4,10 @@ Cliente independente do Amazon Music para Linux com **Electron incluído**, íco
 na bandeja, reprodução em segundo plano e mini player do GNOME. Não precisa ter
 Chrome, Chromium ou Node.js instalado para usar o RPM.
 
-Baixe o RPM e o checksum na [release 0.7.1](https://github.com/mcdalbu/amazon-music-linux/releases/tag/v0.7.1).
+Baixe o RPM e o checksum na [release 0.7.2](https://github.com/mcdalbu/amazon-music-linux/releases/tag/v0.7.2).
 
 ```bash
-sudo dnf install ./amazon-music-electron-0.7.1-1.fc44.x86_64.rpm
+sudo dnf install ./amazon-music-electron-0.7.2-1.fc44.x86_64.rpm
 amazon-music-electron
 ```
 
